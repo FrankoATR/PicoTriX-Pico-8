@@ -5,13 +5,15 @@ __lua__
 local cam_x, cam_y
 local startPositionX, startPositionY
 local game_objects
-local end_game
+local game_over
 local globalTime
 local score
 local combo
 local next_objects
 local deleteLineTime
 local player
+local game_over_text
+
 
 local debug_aux = 0
 
@@ -20,13 +22,14 @@ function _init()
     cam_x, cam_y = 0,0
     startPositionX, startPositionY = 0,0
     game_objects = {}
-    end_game = false
+    game_over = false
     globalTime = 0
 	score = 0
 	combo = 1
 	next_objects = {}
 	deleteLineTime = 0
 	player = nil
+	game_over_text = 0
 
 	local x, y, sprite_id
 
@@ -64,40 +67,57 @@ function _init()
 
 
 	player = player_hand()
-
+	--camera(-8, -8)
 end
 
 function _update()
-    local obj
-	for obj in all(game_objects) do
-		if obj.x < cam_x+136 and obj.x > cam_x-16 and obj.y < cam_y+136 and obj.y-8 > cam_y-16 then
-			obj:update()
+
+	if not game_over then
+		local obj
+		for obj in all(game_objects) do
+			--if obj.x < cam_x+136 and obj.x > cam_x-16 and obj.y < cam_y+136 and obj.y-8 > cam_y-16 then
+				obj:update()
+			--end
 		end
-	end
-
-
-    if globalTime <= 1800 then  --Counting to 1 minute
-        globalTime +=1
-    else
-        globalTime = 0
-    end
-
-	if globalTime%10 == 0 then
-		--normal_block(flr(rnd(10)+1)*8, 0, flr(rnd(3)+1))
-		for i=1, 10 do
-			--normal_block(i*8, 0, flr(rnd(3)+1))
-
+	
+	
+		if globalTime <= 1800 then  --Counting to 1 minute
+			globalTime +=1
+		else
+			globalTime = 0
 		end
-	end
-	if globalTime%60 == 0 then
-		--normal_block(flr(rnd(10)+1)*8, 0, flr(rnd(3)+1))
-			--normal_block(10*8, 0, flr(rnd(3)+1))
+	
+		if globalTime%10 == 0 then
+			--normal_block(flr(rnd(10)+1)*8, 0, flr(rnd(3)+1))
+			for i=1, 10 do
+				--normal_block(i*8, 0, flr(rnd(3)+1))
+	
+			end
+		end
+		if globalTime%60 == 0 then
+			--normal_block(flr(rnd(10)+1)*8, 0, flr(rnd(3)+1))
+				--normal_block(10*8, 0, flr(rnd(3)+1))
+	
+		end
+	
+		if globalTime%15 == 0 then
+			verify_line_complete()
+			verify_gameOver()
+		end
+	else
+		game_over_text = flr(rnd(14)+1)
+
+		for obj in all(game_objects) do
+			if obj.name == "player" then
+				del(game_objects, obj)
+			end
+		end
+
+		del(game_objects, game_objects[flr(rnd(#game_objects)+1)])
 
 	end
 
-	if globalTime%15 == 0 then
-		verify_line_complete()
-	end
+
 
 end
 
@@ -113,7 +133,7 @@ function _draw()
 
 	display_game_info()
 
-	print(debug_aux, 15, 8)
+	--print(debug_aux, 15, 8)
 
 end
 
@@ -145,7 +165,7 @@ function normal_block(x, y, sprite)
 			self.prev_x = self.x
 			self.prev_y = self.y
 
-			if self.active and globalTime%30 == 0 then
+			if self.active and globalTime%30 == 0 and not self.in_use then
 				self.y += self.velocity_y
 				self:check_collision_with_blocks()
 
@@ -377,6 +397,21 @@ function delete_line_complete(line_blocks)
 end
 
 
+
+
+function verify_gameOver()
+
+	for_each_game_object("block",
+		function(block)
+			if(block.alive and not block.active and block.category != "background" and block.y <=0) then
+				game_over = true
+			end
+		end	
+	)
+
+end
+
+
 function player_hand()
 	return make_game_object("hand", 5*8, 0, {
 		actual_figure = nil,
@@ -414,7 +449,22 @@ function player_hand()
 			end
 
 
-			self.actual_figure:check_collision_with_blocks()
+			if btn(4) then
+				if globalTime%5 == 0 then
+					while self.actual_figure do
+						self.actual_figure.prev_y = self.actual_figure.y
+						self.actual_figure.prev_x = self.actual_figure.x
+	
+						self.actual_figure.y += self.velocity_y
+						self.actual_figure:check_collision_with_blocks()
+					end				
+				end
+
+			end
+			
+			if self.actual_figure then
+				self.actual_figure:check_collision_with_blocks()
+			end
 
 
 		end
@@ -424,16 +474,20 @@ function player_hand()
 end
 
 function display_game_info()
+
 	print("score ", 96, 10)
 	print(score, 96, 18)
 
-	print("next ", 96, 30)
-
-	print("combo ", 96, 100)
-	print("x", 96, 108)
-
-	print(combo, 100, 108)
-
+	if not game_over then
+		print("next ", 96, 30)
+	
+		print("combo ", 96, 100)
+		print("x", 96, 108)
+	
+		print(combo, 100, 108)
+	else
+		print("game over noob", 3*8-4, 6*8, game_over_text)
+	end
 
 end
 
